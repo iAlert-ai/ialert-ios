@@ -7,7 +7,7 @@ iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` 
 In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.1.0")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.2.0")
 // target dependency:
 .product(name: "IAlert", package: "ialert-ios")
 ```
@@ -35,9 +35,27 @@ try await ialert.unsubscribe()
 - `delivered` is acked automatically (`autoAckDelivered = false` turns it off). Report `read` / `clicked` yourself. Acks go over the socket when it is ready, otherwise over HTTP.
 - `IAlert.Configuration` lets you inject `storage` (defaults to `UserDefaults`), `transport` (`URLSession`), `webSocketFactory`, `apiURL`, `gatewayURL`, `autoConnect` and the ping/reconnect timings.
 
+## Live Activity broadcasts (iOS 18+)
+
+One push from your server updates a Live Activity on every subscribed device (scores, deliveries, flights). Your server creates the channel with `POST /v1/live-activity-channels` (the app's APNs `.p8` must be in the iAlert panel, and the App ID needs the **Broadcast Capability** under Push Notifications) and gives its `channel_id` to the app.
+
+The app subscribes its Live Activity to the channel with ActivityKit; nothing goes through this SDK:
+
+```swift
+import ActivityKit
+
+let activity = try Activity.request(
+    attributes: MatchAttributes(home: "Persepolis", away: "Esteghlal"),
+    content: .init(state: MatchAttributes.ContentState(home: 0, away: 0), staleDate: nil),
+    pushType: .channel(channelId)
+)
+```
+
+Every broadcast's `content_state` must decode as your `ContentState`. iOS shows `update` events and ends the activity on `end`. Live Activities need a Widget Extension and a real device (the Simulator gets no APNs pushes).
+
 ## Next step: native push
 
-0.1.0 delivers only while the app runs. Next comes APNs integration: pass the device token to `register(pushToken:)`, add a Notification Service Extension, and dedupe APNs payloads by their `ialert.id` against Gateway/Inbox messages (for example by sharing the storage through an App Group).
+Regular notifications still arrive only while the app runs. Next comes APNs integration: pass the device token to `register(pushToken:)`, add a Notification Service Extension, and dedupe APNs payloads by their `ialert.id` against Gateway/Inbox messages (for example by sharing the storage through an App Group).
 
 ## Development
 
