@@ -1,9 +1,20 @@
-# IAlert (iOS)
+# ialert-ios
 
 iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` and `URLSessionWebSocketTask` only). It registers the app as an `ios` device and receives notifications while the app runs, over iAlert's own channel: a WebSocket to the iAlert Gateway, plus the device Inbox for anything sent while the app was closed. Each notification reaches your listeners once, across both channels and restarts. iOS 15+.
 
+## Install
+
+In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
+
 ```swift
-// Package.swift: .package(url: "<repo url>", from: "0.1.0")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.1.0")
+// target dependency:
+.product(name: "IAlert", package: "ialert-ios")
+```
+
+## Usage
+
+```swift
 import IAlert
 
 let ialert = try IAlert(publicKey: "ia_pk_live_…")

@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "IAlert",
+    name: "ialert-ios",
     platforms: [.iOS(.v15), .macOS(.v12)],
     products: [
         .library(name: "IAlert", targets: ["IAlert"]),
