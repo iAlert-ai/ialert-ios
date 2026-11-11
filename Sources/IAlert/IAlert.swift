@@ -450,7 +450,8 @@ public extension IAlert {
             // Already handed over (Gateway, APNs while open, an earlier sync): never shown twice.
             guard receive(message, ack: false) else { continue }
 
-            if !alreadyShown.contains(message.id), message.title != nil || message.body != nil {
+            // APNs already showed pushed entries, even if the user has dismissed them since.
+            if entry.pushed != true, !alreadyShown.contains(message.id), message.title != nil || message.body != nil {
                 try await notifier.show(message)
                 shown.append(message.id)
             }

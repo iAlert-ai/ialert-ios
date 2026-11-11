@@ -29,11 +29,13 @@ struct InboxEntry: Decodable {
     let id: String
     let content: Content
     let collapseId: String?
+    /// APNs/FCM/Web Push already took it, so the system showed it.
+    let pushed: Bool?
     let deliveredAt: String?
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, content
+        case id, content, pushed
         case collapseId = "collapse_id"
         case deliveredAt = "delivered_at"
         case createdAt = "created_at"

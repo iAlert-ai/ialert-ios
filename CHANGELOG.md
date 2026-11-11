@@ -6,6 +6,7 @@
 - `IAlert.login(_:)` sets the external user id.
 - Custom notification sounds: `IAlertMessage.sound`, used by background-sync local notifications (`none` is silent).
 - Local notifications from background sync carry the message data, so taps open `data.url`.
+- Background sync skips Inbox entries APNs already took (`pushed`), so a notification the user dismissed is not shown again.
 
 ## 0.4.0
 
