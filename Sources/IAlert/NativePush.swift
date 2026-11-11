@@ -15,6 +15,15 @@ import BackgroundTasks
 public struct UserNotificationsNotifier: LocalNotifier {
     public init() {}
 
+    /// The app's sound file, the system sound (`default`, nil) or none.
+    public static func notificationSound(_ name: String?) -> UNNotificationSound? {
+        switch name {
+        case nil, "default": return .default
+        case "none": return nil
+        case let name?: return UNNotificationSound(named: UNNotificationSoundName(name))
+        }
+    }
+
     public func deliveredNotificationIds() async -> Set<String> {
         let delivered = await UNUserNotificationCenter.current().deliveredNotifications()
         return Set(delivered.compactMap { ($0.request.content.userInfo["ialert"] as? [String: Any])?["id"] as? String })
@@ -24,7 +33,7 @@ public struct UserNotificationsNotifier: LocalNotifier {
         let content = UNMutableNotificationContent()
         content.title = message.title ?? ""
         content.body = message.body ?? ""
-        content.sound = .default
+        content.sound = Self.notificationSound(message.sound)
         var ialert: [String: Any] = ["id": message.id]
         ialert["image"] = message.image
         if let data = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(message.data)) {

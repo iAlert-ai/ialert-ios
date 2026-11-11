@@ -374,7 +374,8 @@ public final class IAlert: @unchecked Sendable {
             data: message["data"]?.objectValue ?? [:],
             collapseId: message["collapse_id"]?.stringValue,
             createdAt: message["created_at"]?.stringValue,
-            source: .gateway
+            source: .gateway,
+            sound: message["sound"]?.stringValue
         )
     }
 
@@ -387,7 +388,8 @@ public final class IAlert: @unchecked Sendable {
             data: entry.content.data?.objectValue ?? [:],
             collapseId: entry.collapseId,
             createdAt: entry.createdAt,
-            source: .inbox
+            source: .inbox,
+            sound: entry.content.sound
         )
     }
 }
@@ -490,7 +492,8 @@ public extension IAlert {
             data: data,
             collapseId: nil,
             createdAt: nil,
-            source: .push
+            source: .push,
+            sound: aps?["sound"] as? String
         )
     }
 }

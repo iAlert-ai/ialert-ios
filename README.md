@@ -37,6 +37,7 @@ struct MyApp: App {
 
 **Optional extras:**
 
+- **Custom sound:** add the sound file (`.caf`, `.aiff` or `.wav`, ≤ 30 s) to the app target, then send with `"sound": "order.caf"`. APNs plays it, and so do the local notifications from background sync. `"sound": "none"` is silent.
 - *Internet shutdown (APNs unreachable):* enable **Background Modes → Background fetch** and add `<bundle id>.ialert-sync` under `BGTaskSchedulerPermittedIdentifiers` in Info.plist. `start` then schedules the background Inbox sync and shows missed messages as local notifications. iOS decides when it runs, so delivery is delayed and not guaranteed; messages arrive at once whenever the app is open.
 - *Images:* add a Notification Service Extension (step 2 under *Native push* below).
 

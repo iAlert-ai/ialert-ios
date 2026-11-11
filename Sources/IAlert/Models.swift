@@ -92,6 +92,8 @@ public struct IAlertMessage: Equatable, Sendable {
     public let createdAt: String?
     /// Where the SDK got it first.
     public let source: Source
+    /// Sound file in the app bundle, `default`, `none` (silent) or nil (default).
+    public var sound: String? = nil
 }
 
 public enum AckEvent: String, Sendable { case delivered, read, clicked }

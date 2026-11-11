@@ -23,6 +23,7 @@ struct InboxEntry: Decodable {
         let body: String?
         let image: String?
         let data: JSONValue?
+        let sound: String?
     }
 
     let id: String

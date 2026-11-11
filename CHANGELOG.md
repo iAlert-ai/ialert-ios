@@ -4,6 +4,7 @@
 
 - `IAlert.start(publicKey:)`: one-line setup with no AppDelegate code. Picks up the APNs token, forwards notification-center delegate calls, shows iAlert notifications in the foreground, acks taps and opens `data.url`, manages the Gateway across foreground/background and schedules background sync when `<bundle id>.ialert-sync` is permitted.
 - `IAlert.login(_:)` sets the external user id.
+- Custom notification sounds: `IAlertMessage.sound`, used by background-sync local notifications (`none` is silent).
 - Local notifications from background sync carry the message data, so taps open `data.url`.
 
 ## 0.4.0

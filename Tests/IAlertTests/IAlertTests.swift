@@ -325,6 +325,18 @@ final class IAlertTests: XCTestCase {
         ialert.disconnect()
     }
 
+    func testCarriesTheNotificationSoundFromTheInbox() async throws {
+        var entry = inboxEntry("n_1")
+        entry["content"] = ["title": "t", "body": "b", "image": NSNull(), "data": [:], "sound": "order.caf"]
+        let transport = FakeTransport(registerResponder, inboxResponder([entry, inboxEntry("n_2")]), ackResponder)
+        let ialert = try sdk(transport, autoConnect: false)
+        try await ialert.register()
+
+        let messages = try await ialert.syncInbox()
+
+        XCTAssertEqual(messages.map(\.sound), [nil, "order.caf"])
+    }
+
     func testDoesNotShowAMessageAgainAfterARestart() async throws {
         let storage = MemoryStorage()
         let transport = FakeTransport(registerResponder, inboxResponder([inboxEntry("n_1")]), ackResponder)
