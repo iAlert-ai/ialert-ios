@@ -114,6 +114,14 @@ struct ApiClient: Sendable {
         }
     }
 
+    /// Approve or deny an Auth Push request; returns its recorded status.
+    func respondToAuthRequest(deviceId: String, deviceToken: String, requestId: String, approve: Bool, code: String?) async throws -> String {
+        var body: [String: JSONValue] = ["decision": .string(approve ? "approve" : "deny")]
+        if let code { body["code"] = .string(code) }
+        let result: Wrapped<[String: JSONValue]> = try await request("POST", "/devices/\(escape(deviceId))/auth-requests/\(escape(requestId))", body: body, deviceToken: deviceToken)
+        return result.data["status"]?.stringValue ?? "pending"
+    }
+
     private func request<T: Decodable>(_ method: String, _ pathOrURL: String, body: [String: JSONValue]? = nil, deviceToken: String? = nil) async throws -> T {
         guard let url = URL(string: pathOrURL.hasPrefix("http") ? pathOrURL : baseURL + pathOrURL) else {
             throw IAlertError(status: 0, code: "network_error", message: "Invalid URL")

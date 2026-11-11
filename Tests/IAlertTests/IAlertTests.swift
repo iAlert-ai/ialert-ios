@@ -221,7 +221,7 @@ final class IAlertTests: XCTestCase {
         XCTAssertTrue(body["push_token"]?.stringValue?.hasPrefix("ia_ios_") == true)
         XCTAssertEqual(body["external_user_id"], "user-42")
         XCTAssertEqual(body["tags"], .object(["plan": "gold"]))
-        XCTAssertEqual(body["sdk_version"], "0.3.0")
+        XCTAssertEqual(body["sdk_version"], "0.4.0")
         XCTAssertEqual(transport.requests[1].body?["push_token"], body["push_token"])
     }
 
@@ -384,6 +384,35 @@ final class IAlertTests: XCTestCase {
     }
 
     // MARK: Native push
+
+    func testAuthPushAnswersWithTheDeviceTokenAndKeepsTheRegistration() async throws {
+        let transport = FakeTransport(registerResponder, { request in
+            request.url.hasSuffix("/auth-requests/01AUTH") ? (200, ["data": ["id": "01AUTH", "status": "approved"]]) : nil
+        })
+        let ialert = try sdk(transport, autoConnect: false)
+        try await ialert.register(pushToken: "0aff0120")
+
+        let status = try await ialert.respondToAuthRequest("01AUTH", approve: true, code: "47")
+        XCTAssertEqual(status, "approved")
+        let call = transport.requests.first { $0.url.contains("/auth-requests/") }
+        XCTAssertEqual(call?.url, "https://api.test/api/v1/devices/dev_1/auth-requests/01AUTH")
+        XCTAssertEqual(call?.headers["X-Device-Token"], "ia_dt_dev_1.sig")
+        XCTAssertEqual(call?.body?["code"], .string("47"))
+
+        do {
+            try await ialert.respondToAuthRequest("missing", approve: false)
+            XCTFail("expected a 404")
+        } catch let error as IAlertError {
+            XCTAssertEqual(error.status, 404)
+        }
+        XCTAssertEqual(ialert.deviceId, "dev_1")
+
+        let message = IAlertMessage(id: "n1", title: nil, body: nil, image: nil, data: ["ialert_type": .string("auth_request"), "auth_request_id": .string("01AUTH"), "number_matching": .string("1"), "ip": .string("5.160.1.2")], collapseId: nil, createdAt: nil, source: .push)
+        let info = AuthRequestInfo(message: message)
+        XCTAssertEqual(info?.id, "01AUTH")
+        XCTAssertEqual(info?.numberMatching, true)
+        XCTAssertEqual(info?.context, ["ip": "5.160.1.2"])
+    }
 
     func testApnsTokenIsRegisteredAsHex() async throws {
         let transport = FakeTransport(registerResponder)

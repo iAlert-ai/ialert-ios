@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- Auth Push: `respondToAuthRequest` approves or denies a sign-in request on this device (with the typed number for number matching), and a helper reads the request a message carries.
+
 ## 0.3.0
 
 - APNs: `requestPushAuthorization()`, `setAPNsToken(_:)`, `didReceiveRemoteNotification(_:)` (deduplicated against Gateway and Inbox, acked delivered) and `didOpenNotification(_:)` (acked clicked).

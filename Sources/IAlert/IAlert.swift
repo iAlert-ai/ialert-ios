@@ -4,7 +4,7 @@ import Foundation
 /// open while the app runs, syncs the Inbox after every (re)connect and hands
 /// each notification to listeners exactly once.
 public final class IAlert: @unchecked Sendable {
-    public static let sdkVersion = "0.3.0"
+    public static let sdkVersion = "0.4.0"
 
     public struct Configuration {
         /// Public key of the app (`ia_pk_…`).
@@ -309,10 +309,12 @@ public final class IAlert: @unchecked Sendable {
     }
 
     /// A rejected device token means the device was deleted or unsubscribed elsewhere.
-    private func withToken<T>(_ call: () async throws -> T) async throws -> T {
+    /// A rejected device token means the device was deleted elsewhere; a 404 means the
+    /// same unless the path also names another resource (`forgetOnNotFound: false`).
+    private func withToken<T>(forgetOnNotFound: Bool = true, _ call: () async throws -> T) async throws -> T {
         do {
             return try await call()
-        } catch let error as IAlertError where error.code == "device_token_invalid" || error.status == 404 {
+        } catch let error as IAlertError where error.code == "device_token_invalid" || (forgetOnNotFound && error.status == 404) {
             disconnect()
             forget()
             throw error
@@ -458,6 +460,17 @@ public extension IAlert {
         return shown.count
     }
 
+    /// Approve or deny an Auth Push sign-in request (see `AuthRequestInfo(message:)`).
+    /// With number matching pass the number the user typed; a wrong one denies.
+    /// Returns the recorded status: `approved`, `denied`, `pending` or `expired`.
+    @discardableResult
+    func respondToAuthRequest(_ requestId: String, approve: Bool, code: String? = nil) async throws -> String {
+        let registration = try requireRegistration()
+        return try await withToken(forgetOnNotFound: false) {
+            try await self.api.respondToAuthRequest(deviceId: registration.deviceId, deviceToken: registration.deviceToken, requestId: requestId, approve: approve, code: code)
+        }
+    }
+
     /// The `ialert` part of an APNs payload: `{ "aps": { "alert": { … } }, "ialert": { "id", "image", "data" } }`.
     internal static func fromPush(_ userInfo: [AnyHashable: Any]) -> IAlertMessage? {
         guard let ialert = userInfo["ialert"] as? [String: Any], let id = ialert["id"] as? String, !id.isEmpty else {
@@ -479,6 +492,31 @@ public extension IAlert {
             createdAt: nil,
             source: .push
         )
+    }
+}
+
+/// An Auth Push sign-in request carried by a message (`data["ialert_type"] == "auth_request"`).
+public struct AuthRequestInfo: Equatable, Sendable {
+    public let id: String
+    public let numberMatching: Bool
+    public let expiresAt: String?
+    /// Your `context` values (IP, city, device…) to show the user.
+    public let context: [String: String]
+
+    private static let reserved: Set<String> = ["ialert_type", "auth_request_id", "number_matching", "expires_at"]
+
+    /// The request a message carries, or `nil` for other messages.
+    public init?(message: IAlertMessage) {
+        guard message.data["ialert_type"]?.stringValue == "auth_request", let id = message.data["auth_request_id"]?.stringValue else {
+            return nil
+        }
+
+        self.id = id
+        numberMatching = message.data["number_matching"]?.stringValue == "1"
+        expiresAt = message.data["expires_at"]?.stringValue
+        context = message.data.reduce(into: [:]) { result, item in
+            if !Self.reserved.contains(item.key), let value = item.value.stringValue { result[item.key] = value }
+        }
     }
 }
 

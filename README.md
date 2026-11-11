@@ -7,7 +7,7 @@ iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` 
 In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.3.0")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.4.0")
 // target dependency:
 .product(name: "IAlert", package: "ialert-ios")
 ```
@@ -96,6 +96,20 @@ let activity = try Activity.request(
 ```
 
 Every broadcast's `content_state` must decode as your `ContentState`. iOS shows `update` events and ends the activity on `end`. Live Activities need a Widget Extension and iOS 18+; test broadcasts on a device (a Simulator on an Apple-silicon Mac receives APNs only from the sandbox environment).
+
+## Auth Push (approve a sign-in on the phone)
+
+When your server creates an Auth Push request (`POST /v1/auth-requests`), every device of that user gets a high-priority push. Show your own approve/deny screen and answer with the device's token:
+
+```swift
+ialert.onMessage { message in
+    guard let request = AuthRequestInfo(message: message) else { return } // not a sign-in request
+    // show your approve/deny screen with request.context (ip, city, device…)
+    Task { try await ialert.respondToAuthRequest(request.id, approve: userApproved, code: request.numberMatching ? typedNumber : nil) }
+}
+```
+
+With number matching, the user types the two-digit number shown on your sign-in page; a wrong number denies the request. An unknown or expired request throws without clearing the device registration.
 
 ## Development
 
