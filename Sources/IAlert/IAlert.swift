@@ -457,7 +457,9 @@ public extension IAlert {
             }
         }
 
-        let undelivered = entries.filter { $0.deliveredAt == nil }.map(\.id)
+        // Pushed entries stay unacknowledged: if APNs never brought them (an outage), the
+        // server can stop calling them pushed and a later sync shows them.
+        let undelivered = entries.filter { $0.deliveredAt == nil && $0.pushed != true }.map(\.id)
         try? await ack(undelivered, event: .delivered)
 
         return shown.count

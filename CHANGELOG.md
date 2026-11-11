@@ -2,6 +2,7 @@
 
 ## 0.5.0
 
+- Background sync leaves `pushed` entries unacknowledged, so they are shown once the platform switches to its internal network during an outage.
 - `IAlert.start(publicKey:)`: one-line setup with no AppDelegate code. Picks up the APNs token, forwards notification-center delegate calls, shows iAlert notifications in the foreground, acks taps and opens `data.url`, manages the Gateway across foreground/background and schedules background sync when `<bundle id>.ialert-sync` is permitted.
 - `IAlert.login(_:)` sets the external user id.
 - Custom notification sounds: `IAlertMessage.sound`, used by background-sync local notifications (`none` is silent).

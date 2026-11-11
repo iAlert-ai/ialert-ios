@@ -484,6 +484,22 @@ final class IAlertTests: XCTestCase {
         let again = try await ialert.backgroundSync(notifier: FakeNotifier(delivered: []))
         XCTAssertEqual(again, 0, "already seen messages are not shown again")
     }
+
+    func testBackgroundSyncLeavesPushedEntriesUnacknowledged() async throws {
+        var pushed = inboxEntry("n_pushed")
+        pushed["pushed"] = true
+        let transport = FakeTransport(registerResponder, ackResponder, inboxResponder([inboxEntry("n_new"), pushed]))
+        let ialert = try sdk(transport, autoConnect: false)
+        try await ialert.register(pushToken: "0aff0120")
+        let notifier = FakeNotifier(delivered: [])
+
+        let shown = try await ialert.backgroundSync(notifier: notifier)
+
+        XCTAssertEqual(shown, 1)
+        XCTAssertEqual(notifier.shown.map(\.id), ["n_new"])
+        let acked = transport.requests.first { $0.url.hasSuffix("/inbox/ack") }?.body?["ids"]
+        XCTAssertEqual(acked, .array([.string("n_new")]))
+    }
 }
 
 final class FakeNotifier: LocalNotifier, @unchecked Sendable {
