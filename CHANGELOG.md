@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- `IAlert.start(publicKey:)`: one-line setup with no AppDelegate code. Picks up the APNs token, forwards notification-center delegate calls, shows iAlert notifications in the foreground, acks taps and opens `data.url`, manages the Gateway across foreground/background and schedules background sync when `<bundle id>.ialert-sync` is permitted.
+- `IAlert.login(_:)` sets the external user id.
+- Local notifications from background sync carry the message data, so taps open `data.url`.
+
 ## 0.4.0
 
 - Auth Push: `respondToAuthRequest` approves or denies a sign-in request on this device (with the typed number for number matching), and a helper reads the request a message carries.

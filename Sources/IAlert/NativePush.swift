@@ -25,7 +25,12 @@ public struct UserNotificationsNotifier: LocalNotifier {
         content.title = message.title ?? ""
         content.body = message.body ?? ""
         content.sound = .default
-        content.userInfo = ["ialert": ["id": message.id, "image": message.image as Any].compactMapValues { $0 is NSNull ? nil : $0 }]
+        var ialert: [String: Any] = ["id": message.id]
+        ialert["image"] = message.image
+        if let data = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(message.data)) {
+            ialert["data"] = data
+        }
+        content.userInfo = ["ialert": ialert]
         try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ialert-\(message.id)", content: content, trigger: nil))
     }
 }

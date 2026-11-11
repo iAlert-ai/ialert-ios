@@ -7,12 +7,40 @@ iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` 
 In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.4.0")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.5.0")
 // target dependency:
 .product(name: "IAlert", package: "ialert-ios")
 ```
 
-## Usage
+## Quick start
+
+Apple requires two things that no package can do for you:
+
+1. In Xcode, target → **Signing & Capabilities → + Capability → Push Notifications**.
+2. In the iAlert panel, upload the app's APNs key (`.p8`, Key ID, Team ID).
+
+Then one line, as early as possible:
+
+```swift
+import IAlert
+
+@main
+struct MyApp: App {
+    init() { IAlert.start(publicKey: "ia_pk_live_…") }
+    var body: some Scene { WindowGroup { ContentView() } }
+}
+
+// after sign-in (optional): IAlert.login("user-42")
+```
+
+`start` asks for notification permission, picks up the APNs token by itself (no AppDelegate code), registers the device, shows iAlert notifications while the app is open, reports taps and opens `data.url`, keeps the Gateway connected in the foreground and syncs the Inbox. Your own `UNUserNotificationCenter` delegate and AppDelegate methods keep working; iAlert forwards to them.
+
+**Optional extras:**
+
+- *Internet shutdown (APNs unreachable):* enable **Background Modes → Background fetch** and add `<bundle id>.ialert-sync` under `BGTaskSchedulerPermittedIdentifiers` in Info.plist. `start` then schedules the background Inbox sync and shows missed messages as local notifications. iOS decides when it runs, so delivery is delayed and not guaranteed; messages arrive at once whenever the app is open.
+- *Images:* add a Notification Service Extension (step 2 under *Native push* below).
+
+## Usage (manual)
 
 ```swift
 import IAlert
