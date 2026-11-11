@@ -221,7 +221,7 @@ final class IAlertTests: XCTestCase {
         XCTAssertTrue(body["push_token"]?.stringValue?.hasPrefix("ia_ios_") == true)
         XCTAssertEqual(body["external_user_id"], "user-42")
         XCTAssertEqual(body["tags"], .object(["plan": "gold"]))
-        XCTAssertEqual(body["sdk_version"], "0.5.0")
+        XCTAssertEqual(body["sdk_version"], "0.5.1")
         XCTAssertEqual(transport.requests[1].body?["push_token"], body["push_token"])
     }
 
