@@ -7,7 +7,7 @@ iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` 
 In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.2.0")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.3.0")
 // target dependency:
 .product(name: "IAlert", package: "ialert-ios")
 ```
@@ -35,6 +35,50 @@ try await ialert.unsubscribe()
 - `delivered` is acked automatically (`autoAckDelivered = false` turns it off). Report `read` / `clicked` yourself. Acks go over the socket when it is ready, otherwise over HTTP.
 - `IAlert.Configuration` lets you inject `storage` (defaults to `UserDefaults`), `transport` (`URLSession`), `webSocketFactory`, `apiURL`, `gatewayURL`, `autoConnect` and the ping/reconnect timings.
 
+## Native push (APNs), images and outages
+
+**1. APNs.** Add the *Push Notifications* capability, put the app's `.p8` in the iAlert panel (environment **sandbox** for builds run from Xcode, **production** for TestFlight/App Store), then:
+
+```swift
+// AppDelegate
+func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    UNUserNotificationCenter.current().delegate = self
+    ialert.registerBackgroundSync(identifier: "com.example.app.ialert-sync") // step 3
+    Task { try? await ialert.requestPushAuthorization() }
+    return true
+}
+
+func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    Task { try? await ialert.setAPNsToken(deviceToken, fields: DeviceFields(externalUserId: "user-42")) }
+}
+
+func applicationDidEnterBackground(_ application: UIApplication) {
+    ialert.scheduleBackgroundSync(identifier: "com.example.app.ialert-sync")
+}
+
+// UNUserNotificationCenterDelegate
+func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+    ialert.didReceiveRemoteNotification(notification.request.content.userInfo) // listeners get it once
+    return [.banner, .sound]
+}
+
+func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    await ialert.didOpenNotification(response.notification.request.content.userInfo) // acked as clicked
+}
+```
+
+**2. Images.** Add a *Notification Service Extension* target, add the `IAlertNotificationService` product of this package to it, and make its principal class a subclass:
+
+```swift
+import IAlertNotificationService
+
+final class NotificationService: IAlertNotificationService {}
+```
+
+It downloads `ialert.image` (HTTPS only) and attaches it to the notification.
+
+**3. While APNs is unreachable (internet shutdown).** iAlert keeps every message in the device Inbox. `registerBackgroundSync` lets iOS run a background refresh that pulls Inbox messages no channel delivered yet and shows them as local notifications, skipping any APNs already shows. In Info.plist add the identifier under `BGTaskSchedulerPermittedIdentifiers`, and enable *Background Modes → Background fetch*. **iOS decides when this runs** (depending on battery, network and how often the user opens the app), so during an outage messages arrive with a delay and are not guaranteed; when the app is open they arrive at once over the Gateway.
+
 ## Live Activity broadcasts (iOS 18+)
 
 One push from your server updates a Live Activity on every subscribed device (scores, deliveries, flights). Your server creates the channel with `POST /v1/live-activity-channels` (the app's APNs `.p8` must be in the iAlert panel, and the App ID needs the **Broadcast Capability** under Push Notifications) and gives its `channel_id` to the app.
@@ -51,11 +95,7 @@ let activity = try Activity.request(
 )
 ```
 
-Every broadcast's `content_state` must decode as your `ContentState`. iOS shows `update` events and ends the activity on `end`. Live Activities need a Widget Extension and a real device (the Simulator gets no APNs pushes).
-
-## Next step: native push
-
-Regular notifications still arrive only while the app runs. Next comes APNs integration: pass the device token to `register(pushToken:)`, add a Notification Service Extension, and dedupe APNs payloads by their `ialert.id` against Gateway/Inbox messages (for example by sharing the storage through an App Group).
+Every broadcast's `content_state` must decode as your `ContentState`. iOS shows `update` events and ends the activity on `end`. Live Activities need a Widget Extension and iOS 18+; test broadcasts on a device (a Simulator on an Apple-silicon Mac receives APNs only from the sandbox environment).
 
 ## Development
 

@@ -221,7 +221,7 @@ final class IAlertTests: XCTestCase {
         XCTAssertTrue(body["push_token"]?.stringValue?.hasPrefix("ia_ios_") == true)
         XCTAssertEqual(body["external_user_id"], "user-42")
         XCTAssertEqual(body["tags"], .object(["plan": "gold"]))
-        XCTAssertEqual(body["sdk_version"], "0.2.0")
+        XCTAssertEqual(body["sdk_version"], "0.3.0")
         XCTAssertEqual(transport.requests[1].body?["push_token"], body["push_token"])
     }
 
@@ -382,4 +382,90 @@ final class IAlertTests: XCTestCase {
         let first = await iterator.next()
         XCTAssertEqual(first?.id, "n_1")
     }
+
+    // MARK: Native push
+
+    func testApnsTokenIsRegisteredAsHex() async throws {
+        let transport = FakeTransport(registerResponder)
+        let ialert = try sdk(transport, autoConnect: false)
+
+        try await ialert.setAPNsToken(Data([0x0a, 0xff, 0x01, 0x20]))
+
+        XCTAssertEqual(IAlert.apnsTokenString(Data([0x00, 0xab])), "00ab")
+        XCTAssertEqual(transport.requests.first?.body?["push_token"], .string("0aff0120"))
+        XCTAssertEqual(transport.requests.first?.body?["platform"], .string("ios"))
+    }
+
+    func testPushesAreDeliveredOnceAndTapsAreAckedAsClicked() async throws {
+        let transport = FakeTransport(registerResponder, ackResponder)
+        let ialert = try sdk(transport, autoConnect: false)
+        try await ialert.register(pushToken: "0aff0120")
+        var received: [IAlertMessage] = []
+        ialert.onMessage { received.append($0) }
+
+        let userInfo: [AnyHashable: Any] = [
+            "aps": ["alert": ["title": "Goal", "body": "2 - 1"], "mutable-content": 1],
+            "ialert": ["id": "01NOTIF", "image": "https://cdn.test/a.jpg", "data": ["match": 7]],
+        ]
+
+        XCTAssertEqual(ialert.didReceiveRemoteNotification(userInfo)?.source, .push)
+        XCTAssertNil(ialert.didReceiveRemoteNotification(userInfo))
+        XCTAssertNil(ialert.didReceiveRemoteNotification(["aps": ["alert": "not ours"]]))
+        await ialert.didOpenNotification(userInfo)
+
+        XCTAssertEqual(received.count, 1)
+        XCTAssertEqual(received.first?.title, "Goal")
+        XCTAssertEqual(received.first?.image, "https://cdn.test/a.jpg")
+        XCTAssertEqual(received.first?.data["match"], .number(7))
+
+        await eventually { transport.requests.filter { $0.url.hasSuffix("/inbox/ack") }.count == 2 }
+        let events = transport.requests.filter { $0.url.hasSuffix("/inbox/ack") }.compactMap { $0.body?["event"]?.stringValue }
+        XCTAssertEqual(Set(events), ["delivered", "clicked"])
+    }
+
+    func testBackgroundSyncShowsOnlyUndeliveredMessagesNotAlreadyOnScreen() async throws {
+        let transport = FakeTransport(registerResponder, ackResponder, inboxResponder([
+            inboxEntry("n_new"),
+            inboxEntry("n_shown_by_apns"),
+            inboxEntry("n_old", deliveredAt: "2026-11-09T08:00:00+00:00"),
+        ]))
+        let ialert = try sdk(transport, autoConnect: false)
+        try await ialert.register(pushToken: "0aff0120")
+        let notifier = FakeNotifier(delivered: ["n_shown_by_apns"])
+
+        let shown = try await ialert.backgroundSync(notifier: notifier)
+
+        XCTAssertEqual(shown, 1)
+        XCTAssertEqual(notifier.shown.map(\.id), ["n_new"])
+        let acked = transport.requests.first { $0.url.hasSuffix("/inbox/ack") }?.body?["ids"]
+        XCTAssertEqual(acked, .array([.string("n_new"), .string("n_shown_by_apns")]))
+
+        let again = try await ialert.backgroundSync(notifier: FakeNotifier(delivered: []))
+        XCTAssertEqual(again, 0, "already seen messages are not shown again")
+    }
 }
+
+final class FakeNotifier: LocalNotifier, @unchecked Sendable {
+    private let lock = NSLock()
+    private let delivered: Set<String>
+    private var recorded: [IAlertMessage] = []
+
+    init(delivered: Set<String>) {
+        self.delivered = delivered
+    }
+
+    var shown: [IAlertMessage] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
+    }
+
+    func deliveredNotificationIds() async -> Set<String> { delivered }
+
+    func show(_ message: IAlertMessage) async throws {
+        lock.lock()
+        recorded.append(message)
+        lock.unlock()
+    }
+}
+

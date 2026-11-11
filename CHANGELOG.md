@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- APNs: `requestPushAuthorization()`, `setAPNsToken(_:)`, `didReceiveRemoteNotification(_:)` (deduplicated against Gateway and Inbox, acked delivered) and `didOpenNotification(_:)` (acked clicked).
+- `IAlertNotificationService` product: a Notification Service Extension that attaches `ialert.image`.
+- Outages: `registerBackgroundSync` / `scheduleBackgroundSync` run a background refresh that shows undelivered Inbox messages as local notifications, skipping those APNs already shows.
+
 ## 0.2.0
 
 - README: subscribing a Live Activity to an iAlert broadcast channel with ActivityKit (iOS 18+). No API change.

@@ -6,9 +6,11 @@ let package = Package(
     platforms: [.iOS(.v15), .macOS(.v12)],
     products: [
         .library(name: "IAlert", targets: ["IAlert"]),
+        .library(name: "IAlertNotificationService", targets: ["IAlertNotificationService"]),
     ],
     targets: [
         .target(name: "IAlert"),
+        .target(name: "IAlertNotificationService"),
         .testTarget(name: "IAlertTests", dependencies: ["IAlert"]),
     ]
 )

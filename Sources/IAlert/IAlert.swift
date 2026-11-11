@@ -4,7 +4,7 @@ import Foundation
 /// open while the app runs, syncs the Inbox after every (re)connect and hands
 /// each notification to listeners exactly once.
 public final class IAlert: @unchecked Sendable {
-    public static let sdkVersion = "0.2.0"
+    public static let sdkVersion = "0.3.0"
 
     public struct Configuration {
         /// Public key of the app (`ia_pk_…`).
@@ -389,3 +389,96 @@ public final class IAlert: @unchecked Sendable {
         )
     }
 }
+
+// MARK: - Native push (APNs) and background Inbox sync
+
+/// Shows Inbox messages as local notifications during background sync.
+public protocol LocalNotifier: Sendable {
+    /// Notification ids (`ialert.id`) of notifications still shown in Notification Center.
+    func deliveredNotificationIds() async -> Set<String>
+    func show(_ message: IAlertMessage) async throws
+}
+
+public extension IAlert {
+    /// Hex string of the APNs device token, as APNs and iAlert expect it.
+    static func apnsTokenString(_ deviceToken: Data) -> String {
+        deviceToken.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Register this device with its APNs token. Call it from
+    /// `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`.
+    @discardableResult
+    func setAPNsToken(_ deviceToken: Data, fields: DeviceFields = DeviceFields()) async throws -> Device {
+        try await register(pushToken: Self.apnsTokenString(deviceToken), fields: fields)
+    }
+
+    /// Hand an iAlert APNs push to the SDK (from `userNotificationCenter(_:willPresent:)`
+    /// or `application(_:didReceiveRemoteNotification:)`): listeners get it once,
+    /// deduplicated against the Gateway and Inbox, and it is acked as delivered.
+    @discardableResult
+    func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any]) -> IAlertMessage? {
+        guard let message = Self.fromPush(userInfo) else { return nil }
+        return receive(message) ? message : nil
+    }
+
+    /// Report a tap on an iAlert notification (push or local), from
+    /// `userNotificationCenter(_:didReceive:withCompletionHandler:)`.
+    func didOpenNotification(_ userInfo: [AnyHashable: Any]) async {
+        guard let message = Self.fromPush(userInfo) else { return }
+        receive(message)
+        try? await ack([message.id], event: .clicked)
+    }
+
+    /// Pull Inbox messages that no channel delivered yet and show them as local
+    /// notifications (skipping any APNs already shows). This is how messages reach
+    /// a closed app while APNs is unreachable; iOS decides when background work runs.
+    /// Returns how many notifications were shown.
+    @discardableResult
+    func backgroundSync(notifier: LocalNotifier) async throws -> Int {
+        let registration = try requireRegistration()
+        let entries = try await withToken { try await self.api.inbox(deviceId: registration.deviceId, deviceToken: registration.deviceToken) }
+        let alreadyShown = await notifier.deliveredNotificationIds()
+        var shown: [String] = []
+
+        for entry in entries.reversed() where entry.deliveredAt == nil {
+            let message = Self.fromInbox(entry)
+
+            // Already handed over (Gateway, APNs while open, an earlier sync): never shown twice.
+            guard receive(message, ack: false) else { continue }
+
+            if !alreadyShown.contains(message.id), message.title != nil || message.body != nil {
+                try await notifier.show(message)
+                shown.append(message.id)
+            }
+        }
+
+        let undelivered = entries.filter { $0.deliveredAt == nil }.map(\.id)
+        try? await ack(undelivered, event: .delivered)
+
+        return shown.count
+    }
+
+    /// The `ialert` part of an APNs payload: `{ "aps": { "alert": { … } }, "ialert": { "id", "image", "data" } }`.
+    internal static func fromPush(_ userInfo: [AnyHashable: Any]) -> IAlertMessage? {
+        guard let ialert = userInfo["ialert"] as? [String: Any], let id = ialert["id"] as? String, !id.isEmpty else {
+            return nil
+        }
+
+        let aps = userInfo["aps"] as? [String: Any]
+        let alert = aps?["alert"] as? [String: Any]
+        let data = (ialert["data"] as? [String: Any]).flatMap { try? JSONSerialization.data(withJSONObject: $0) }
+            .flatMap { try? JSONDecoder().decode([String: JSONValue].self, from: $0) } ?? [:]
+
+        return IAlertMessage(
+            id: id,
+            title: alert?["title"] as? String,
+            body: alert?["body"] as? String ?? aps?["alert"] as? String,
+            image: ialert["image"] as? String,
+            data: data,
+            collapseId: nil,
+            createdAt: nil,
+            source: .push
+        )
+    }
+}
+

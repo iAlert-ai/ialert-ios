@@ -81,7 +81,7 @@ public struct Device: Decodable, Equatable, Sendable {
 
 /// A notification from the Gateway or the Inbox; `id` is the notification id.
 public struct IAlertMessage: Equatable, Sendable {
-    public enum Source: String, Sendable { case gateway, inbox }
+    public enum Source: String, Sendable { case gateway, inbox, push }
 
     public let id: String
     public let title: String?
