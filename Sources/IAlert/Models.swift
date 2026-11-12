@@ -80,6 +80,30 @@ public struct Device: Decodable, Equatable, Sendable {
 }
 
 /// A notification from the Gateway or the Inbox; `id` is the notification id.
+/// The sender of a communication notification. `id` keeps one sender's messages together;
+/// `avatar` is an HTTPS image.
+public struct IAlertSender: Equatable, Sendable, Decodable {
+    public let id: String?
+    public let name: String
+    public let avatar: String?
+
+    public init(id: String? = nil, name: String, avatar: String? = nil) {
+        self.id = id
+        self.name = name
+        self.avatar = avatar
+    }
+
+    init?(_ value: [String: Any]?) {
+        guard let name = value?["name"] as? String, !name.isEmpty else { return nil }
+        self.init(id: value?["id"] as? String, name: name, avatar: value?["avatar"] as? String)
+    }
+
+    init?(_ value: [String: JSONValue]?) {
+        guard let name = value?["name"]?.stringValue, !name.isEmpty else { return nil }
+        self.init(id: value?["id"]?.stringValue, name: name, avatar: value?["avatar"]?.stringValue)
+    }
+}
+
 public struct IAlertMessage: Equatable, Sendable {
     public enum Source: String, Sendable { case gateway, inbox, push }
 
@@ -98,6 +122,9 @@ public struct IAlertMessage: Equatable, Sendable {
     /// link with your app's URL scheme (`myapp://orders/42`). Falls back to `data["url"]` for
     /// messages sent before the `url` field.
     public var url: String? = nil
+    /// Who the message is from: shown as a communication notification (the sender's photo and
+    /// name in place of the app icon) by `IAlertNotificationService` and by the SDK itself.
+    public var sender: IAlertSender? = nil
 
     /// The notification's `url`, or `data["url"]` of older messages.
     static func clickURL(_ url: String?, data: [String: JSONValue]) -> String? {

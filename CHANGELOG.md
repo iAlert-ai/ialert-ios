@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- Communication notifications: `IAlertNotificationService` turns a push with `ialert.sender` into an `INSendMessageIntent` notification with the sender's photo and name, and attaches the image and the photo in parallel. Messages the SDK shows itself get the sender too. `IAlertMessage.sender` / `IAlertSender`.
+
 ## 0.6.0
 
 - Notification links: the new `url` field (`ialert.url` in APNs) opens on tap: Safari or a Universal Link for web links, the app itself for deep links with its URL scheme. `IAlert.onNotificationClick` lets the app route taps itself. `IAlertMessage.url`; `data.url` still works.

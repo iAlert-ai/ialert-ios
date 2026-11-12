@@ -221,7 +221,7 @@ final class IAlertTests: XCTestCase {
         XCTAssertTrue(body["push_token"]?.stringValue?.hasPrefix("ia_ios_") == true)
         XCTAssertEqual(body["external_user_id"], "user-42")
         XCTAssertEqual(body["tags"], .object(["plan": "gold"]))
-        XCTAssertEqual(body["sdk_version"], "0.6.0")
+        XCTAssertEqual(body["sdk_version"], "0.7.0")
         XCTAssertEqual(transport.requests[1].body?["push_token"], body["push_token"])
     }
 
@@ -446,6 +446,13 @@ final class IAlertTests: XCTestCase {
         XCTAssertEqual(deepLink?.url, "myshop://orders/7")
         XCTAssertEqual(legacy?.url, "https://shop.test/sale")
         XCTAssertNil(IAlert.fromPush(["ialert": ["id": "n3"]])?.url)
+    }
+
+    func testTheSenderComesFromThePush() {
+        let message = IAlert.fromPush(["ialert": ["id": "n1", "sender": ["id": "chat-7", "name": "Sara", "avatar": "https://img.test/sara.png"]]])
+
+        XCTAssertEqual(message?.sender, IAlertSender(id: "chat-7", name: "Sara", avatar: "https://img.test/sara.png"))
+        XCTAssertNil(IAlert.fromPush(["ialert": ["id": "n2", "sender": ["avatar": "https://img.test/a.png"]]])?.sender)
     }
 
     func testPushesAreDeliveredOnceAndTapsAreAckedAsClicked() async throws {

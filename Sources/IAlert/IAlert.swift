@@ -4,7 +4,7 @@ import Foundation
 /// open while the app runs, syncs the Inbox after every (re)connect and hands
 /// each notification to listeners exactly once.
 public final class IAlert: @unchecked Sendable {
-    public static let sdkVersion = "0.6.0"
+    public static let sdkVersion = "0.7.0"
 
     public struct Configuration {
         /// Public key of the app (`ia_pk_…`).
@@ -379,7 +379,8 @@ public final class IAlert: @unchecked Sendable {
             createdAt: message["created_at"]?.stringValue,
             source: .gateway,
             sound: message["sound"]?.stringValue,
-            url: IAlertMessage.clickURL(message["url"]?.stringValue, data: message["data"]?.objectValue ?? [:])
+            url: IAlertMessage.clickURL(message["url"]?.stringValue, data: message["data"]?.objectValue ?? [:]),
+            sender: IAlertSender(message["sender"]?.objectValue)
         )
     }
 
@@ -394,7 +395,8 @@ public final class IAlert: @unchecked Sendable {
             createdAt: entry.createdAt,
             source: .inbox,
             sound: entry.content.sound,
-            url: IAlertMessage.clickURL(entry.content.url, data: entry.content.data?.objectValue ?? [:])
+            url: IAlertMessage.clickURL(entry.content.url, data: entry.content.data?.objectValue ?? [:]),
+            sender: entry.content.sender
         )
     }
 }
@@ -502,7 +504,8 @@ public extension IAlert {
             createdAt: nil,
             source: .push,
             sound: aps?["sound"] as? String,
-            url: IAlertMessage.clickURL(ialert["url"] as? String, data: data)
+            url: IAlertMessage.clickURL(ialert["url"] as? String, data: data),
+            sender: IAlertSender(ialert["sender"] as? [String: Any])
         )
     }
 

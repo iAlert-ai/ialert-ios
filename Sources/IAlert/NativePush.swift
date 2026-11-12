@@ -37,11 +37,20 @@ public struct UserNotificationsNotifier: LocalNotifier {
         var ialert: [String: Any] = ["id": message.id]
         ialert["image"] = message.image
         ialert["url"] = message.url
+        if let sender = message.sender {
+            ialert["sender"] = ["id": sender.id, "name": sender.name, "avatar": sender.avatar].compactMapValues { $0 }
+        }
         if let data = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(message.data)) {
             ialert["data"] = data
         }
         content.userInfo = ["ialert": ialert]
-        try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ialert-\(message.id)", content: content, trigger: nil))
+        var shown: UNNotificationContent = content
+        #if os(iOS)
+        if let sender = message.sender {
+            shown = await CommunicationNotification.update(content, sender: sender, avatar: await CommunicationNotification.download(sender.avatar))
+        }
+        #endif
+        try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "ialert-\(message.id)", content: shown, trigger: nil))
     }
 }
 

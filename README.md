@@ -7,7 +7,7 @@ iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` 
 In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.6.0")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.7.0")
 // target dependency:
 .product(name: "IAlert", package: "ialert-ios")
 ```
@@ -136,6 +136,40 @@ final class NotificationService: IAlertNotificationService {}
 It downloads `ialert.image` (HTTPS only) and attaches it to the notification.
 
 **3. While APNs is unreachable (internet shutdown).** iAlert keeps every message in the device Inbox. `registerBackgroundSync` lets iOS run a background refresh that pulls Inbox messages no channel delivered yet and shows them as local notifications, skipping any APNs already shows. In Info.plist add the identifier under `BGTaskSchedulerPermittedIdentifiers`, and enable *Background Modes → Background fetch*. **iOS decides when this runs** (depending on battery, network and how often the user opens the app), so during an outage messages arrive with a delay and are not guaranteed; when the app is open they arrive at once over the Gateway.
+
+## Conversation notifications (sender photo)
+
+Send a message with a `sender` and it is shown like a chat message: the sender's photo and name in place of the app icon (the app icon becomes a small badge).
+
+```json
+{ "title": "New message", "body": "Your order is ready", "sender": { "id": "chat-7", "name": "Sara", "avatar": "https://cdn.example.com/u/7.jpg" }, "target": { "type": "all" } }
+```
+
+`sender.name` is required, `avatar` is an HTTPS image (square, 192×192 or larger), `id` keeps one sender's messages together (the name when omitted). The panel has the same fields. `message.sender` carries it in code.
+
+iOS calls these Communication Notifications (iOS 15+). The photo must be set before iOS shows the push, so it needs a one-time setup:
+
+1. Add a **Notification Service Extension** target (File → New → Target), add the `IAlertNotificationService` product of `https://github.com/iAlert-ai/ialert-ios` to it (Swift Package Manager works next to CocoaPods), set its deployment target to iOS 15+, and make its class:
+
+   ```swift
+   import IAlertNotificationService
+
+   class NotificationService: IAlertNotificationService {}
+   ```
+
+2. On the **app** target: Signing & Capabilities → + Capability → **Communication Notifications**.
+3. In the **app's** `Info.plist`:
+
+   ```xml
+   <key>NSUserActivityTypes</key>
+   <array>
+       <string>INSendMessageIntent</string>
+   </array>
+   ```
+
+Without steps 2–3 iOS shows the message as a normal notification (with the app icon and the image), so nothing is lost.
+
+Messages the SDK shows itself (from the internal network or the Inbox during an APNs outage) get the sender photo too.
 
 ## Live Activity broadcasts (iOS 18+)
 
