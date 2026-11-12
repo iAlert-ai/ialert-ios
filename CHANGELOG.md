@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Notification links: the new `url` field (`ialert.url` in APNs) opens on tap: Safari or a Universal Link for web links, the app itself for deep links with its URL scheme. `IAlert.onNotificationClick` lets the app route taps itself. `IAlertMessage.url`; `data.url` still works.
+- Registration sends a stable `installation_id`, the device model (`hw.machine`) and the iOS version, so one install stays one device across the internal network and APNs.
+
 ## 0.5.1
 
 - Background sync leaves `pushed` entries unacknowledged, so they are shown once the platform switches to its internal network during an outage.

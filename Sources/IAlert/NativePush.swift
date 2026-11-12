@@ -36,6 +36,7 @@ public struct UserNotificationsNotifier: LocalNotifier {
         content.sound = Self.notificationSound(message.sound)
         var ialert: [String: Any] = ["id": message.id]
         ialert["image"] = message.image
+        ialert["url"] = message.url
         if let data = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(message.data)) {
             ialert["data"] = data
         }

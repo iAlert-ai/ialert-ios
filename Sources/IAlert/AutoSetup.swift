@@ -23,6 +23,14 @@ public extension IAlert {
     /// is open, reports taps, keeps the Gateway connected while the app is in the
     /// foreground and schedules the background Inbox sync for outages (when the
     /// identifier `<bundle id>.ialert-sync` is listed in Info.plist).
+    /// Route taps yourself (for example with a SwiftUI `NavigationPath`). Called on the main
+    /// thread with the notification's `url` (deep link or web link) and its data; return true
+    /// when handled, false to let the SDK open the link. Set it before `start(publicKey:)`.
+    static var onNotificationClick: (@MainActor (URL?, [String: JSONValue]) -> Bool)? {
+        get { AutoSetup.clickHandler }
+        set { AutoSetup.clickHandler = newValue }
+    }
+
     @discardableResult
     static func start(publicKey: String, fields: DeviceFields = DeviceFields(), requestPermission: Bool = true) -> IAlert? {
         if let shared { return shared }
@@ -52,6 +60,7 @@ public extension IAlert {
 /// Gateway lifecycle. Everything the app did before keeps working.
 enum AutoSetup {
     static var instance: IAlert?
+    static var clickHandler: (@MainActor (URL?, [String: JSONValue]) -> Bool)?
     static var fields = DeviceFields()
     private static var token: Data?
     private static var registered = false
@@ -195,11 +204,22 @@ final class NotificationProxy: NSObject, UNUserNotificationCenterDelegate {
 }
 
 extension AutoSetup {
-    /// Opens `data.url` of a tapped notification (a deep link or web page), if set.
+    /// Opens the `url` of a tapped notification (`data.url` for older messages): a deep link
+    /// with the app's own scheme comes back to the app (`onOpenURL` / `application(_:open:)`),
+    /// a web link opens Safari or the app's Universal Link. The click handler goes first.
     static func openURL(from userInfo: [AnyHashable: Any]) {
-        let data = (userInfo["ialert"] as? [String: Any])?["data"] as? [String: Any] ?? [:]
-        guard let string = data["url"] as? String, let url = URL(string: string) else { return }
-        DispatchQueue.main.async { UIApplication.shared.open(url) }
+        guard let message = IAlert.fromPush(userInfo) else { return }
+        let url = message.url.flatMap(URL.init(string:)).flatMap { url -> URL? in
+            guard let scheme = url.scheme?.lowercased(), !blockedSchemes.contains(scheme) else { return nil }
+            return url
+        }
+
+        DispatchQueue.main.async {
+            if let handler = clickHandler, MainActor.assumeIsolated({ handler(url, message.data) }) { return }
+            if let url { UIApplication.shared.open(url) }
+        }
     }
+
+    private static let blockedSchemes: Set<String> = ["javascript", "file", "data"]
 }
 #endif

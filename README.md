@@ -7,7 +7,7 @@ iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` 
 In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.5.1")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.6.0")
 // target dependency:
 .product(name: "IAlert", package: "ialert-ios")
 ```
@@ -33,13 +33,42 @@ struct MyApp: App {
 // after sign-in (optional): IAlert.login("user-42")
 ```
 
-`start` asks for notification permission, picks up the APNs token by itself (no AppDelegate code), registers the device, shows iAlert notifications while the app is open, reports taps and opens `data.url`, keeps the Gateway connected in the foreground and syncs the Inbox. Your own `UNUserNotificationCenter` delegate and AppDelegate methods keep working; iAlert forwards to them.
+`start` asks for notification permission, picks up the APNs token by itself (no AppDelegate code), registers the device, shows iAlert notifications while the app is open, reports taps and opens the message's `url` (see "Notification links"), keeps the Gateway connected in the foreground and syncs the Inbox. Your own `UNUserNotificationCenter` delegate and AppDelegate methods keep working; iAlert forwards to them.
 
 **Optional extras:**
 
 - **Custom sound:** add the sound file (`.caf`, `.aiff` or `.wav`, ≤ 30 s) to the app target, then send with `"sound": "order.caf"`. APNs plays it, and so do the local notifications from background sync. `"sound": "none"` is silent.
 - *Internet shutdown (APNs unreachable):* enable **Background Modes → Background fetch** and add `<bundle id>.ialert-sync` under `BGTaskSchedulerPermittedIdentifiers` in Info.plist. `start` then schedules the background Inbox sync and shows missed messages as local notifications. iOS decides when it runs, so delivery is delayed and not guaranteed; messages arrive at once whenever the app is open.
 - *Images:* add a Notification Service Extension (step 2 under *Native push* below).
+
+## Notification links and deep links
+
+Send a notification with `url` (API field or the panel's "Link on click"). On tap the SDK acks
+the click and opens it with `UIApplication.open`:
+
+- `https://…` opens Safari, or your app when the domain is one of its Universal Links.
+- A deep link with your app's URL scheme (`myapp://orders/42`, registered under URL Types in
+  Info.plist) comes back to your app: handle it in SwiftUI's `.onOpenURL` or in
+  `application(_:open:options:)`.
+
+```swift
+WindowGroup { ContentView() }
+    .onOpenURL { url in router.open(url) }   // myapp://orders/42
+```
+
+Or route the tap yourself; return true when handled, and the SDK does not open the link:
+
+```swift
+IAlert.onNotificationClick = { url, data in
+    guard let url, url.scheme == "myapp" else { return false }
+    router.open(url)
+    return true
+}
+IAlert.start(publicKey: "ia_pk_live_…")
+```
+
+`IAlertMessage.url` carries the link for messages you handle in `onMessage`. Messages sent with
+`data.url` before the `url` field existed still work the same way.
 
 ## Usage (manual)
 

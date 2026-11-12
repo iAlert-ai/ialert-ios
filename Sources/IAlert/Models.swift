@@ -94,6 +94,17 @@ public struct IAlertMessage: Equatable, Sendable {
     public let source: Source
     /// Sound file in the app bundle, `default`, `none` (silent) or nil (default).
     public var sound: String? = nil
+    /// Opened on tap: a web link (`https://…`, Safari or a Universal Link of your app) or a deep
+    /// link with your app's URL scheme (`myapp://orders/42`). Falls back to `data["url"]` for
+    /// messages sent before the `url` field.
+    public var url: String? = nil
+
+    /// The notification's `url`, or `data["url"]` of older messages.
+    static func clickURL(_ url: String?, data: [String: JSONValue]) -> String? {
+        if let url, !url.isEmpty { return url }
+        if let legacy = data["url"]?.stringValue, !legacy.isEmpty { return legacy }
+        return nil
+    }
 }
 
 public enum AckEvent: String, Sendable { case delivered, read, clicked }

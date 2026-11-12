@@ -221,7 +221,7 @@ final class IAlertTests: XCTestCase {
         XCTAssertTrue(body["push_token"]?.stringValue?.hasPrefix("ia_ios_") == true)
         XCTAssertEqual(body["external_user_id"], "user-42")
         XCTAssertEqual(body["tags"], .object(["plan": "gold"]))
-        XCTAssertEqual(body["sdk_version"], "0.5.1")
+        XCTAssertEqual(body["sdk_version"], "0.6.0")
         XCTAssertEqual(transport.requests[1].body?["push_token"], body["push_token"])
     }
 
@@ -232,6 +232,8 @@ final class IAlertTests: XCTestCase {
         try await sdk(transport, storage: storage, autoConnect: false).register(pushToken: "apns-hex-token")
 
         XCTAssertEqual(transport.requests[0].body?["push_token"], "apns-hex-token")
+        XCTAssertTrue(transport.requests[0].body?["installation_id"]?.stringValue?.hasPrefix("ia_ios_") == true)
+        XCTAssertNotNil(transport.requests[0].body?["os_version"]?.stringValue)
         XCTAssertEqual(try sdk(transport, storage: storage, autoConnect: false).deviceId, "dev_1")
     }
 
@@ -435,6 +437,15 @@ final class IAlertTests: XCTestCase {
         XCTAssertEqual(IAlert.apnsTokenString(Data([0x00, 0xab])), "00ab")
         XCTAssertEqual(transport.requests.first?.body?["push_token"], .string("0aff0120"))
         XCTAssertEqual(transport.requests.first?.body?["platform"], .string("ios"))
+    }
+
+    func testTheClickUrlComesFromThePushAndFallsBackToDataUrl() {
+        let deepLink = IAlert.fromPush(["ialert": ["id": "n1", "url": "myshop://orders/7", "data": [:]]])
+        let legacy = IAlert.fromPush(["ialert": ["id": "n2", "data": ["url": "https://shop.test/sale"]]])
+
+        XCTAssertEqual(deepLink?.url, "myshop://orders/7")
+        XCTAssertEqual(legacy?.url, "https://shop.test/sale")
+        XCTAssertNil(IAlert.fromPush(["ialert": ["id": "n3"]])?.url)
     }
 
     func testPushesAreDeliveredOnceAndTapsAreAckedAsClicked() async throws {

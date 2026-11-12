@@ -4,7 +4,7 @@ import Foundation
 /// open while the app runs, syncs the Inbox after every (re)connect and hands
 /// each notification to listeners exactly once.
 public final class IAlert: @unchecked Sendable {
-    public static let sdkVersion = "0.5.1"
+    public static let sdkVersion = "0.6.0"
 
     public struct Configuration {
         /// Public key of the app (`ia_pk_…`).
@@ -77,7 +77,10 @@ public final class IAlert: @unchecked Sendable {
         var body = try Self.body(for: fields)
         body["platform"] = "ios"
         body["push_token"] = .string(pushToken ?? installationId())
+        body["installation_id"] = .string(installationId())
         body["sdk_version"] = .string(Self.sdkVersion)
+        if let model = Self.deviceModel() { body["device_model"] = .string(model) }
+        body["os_version"] = .string(Self.osVersion())
         if fields.locale == nil { body["locale"] = .string(Locale.current.identifier) }
         if fields.timezone == nil { body["timezone"] = .string(TimeZone.current.identifier) }
 
@@ -375,7 +378,8 @@ public final class IAlert: @unchecked Sendable {
             collapseId: message["collapse_id"]?.stringValue,
             createdAt: message["created_at"]?.stringValue,
             source: .gateway,
-            sound: message["sound"]?.stringValue
+            sound: message["sound"]?.stringValue,
+            url: IAlertMessage.clickURL(message["url"]?.stringValue, data: message["data"]?.objectValue ?? [:])
         )
     }
 
@@ -389,7 +393,8 @@ public final class IAlert: @unchecked Sendable {
             collapseId: entry.collapseId,
             createdAt: entry.createdAt,
             source: .inbox,
-            sound: entry.content.sound
+            sound: entry.content.sound,
+            url: IAlertMessage.clickURL(entry.content.url, data: entry.content.data?.objectValue ?? [:])
         )
     }
 }
@@ -496,8 +501,30 @@ public extension IAlert {
             collapseId: nil,
             createdAt: nil,
             source: .push,
-            sound: aps?["sound"] as? String
+            sound: aps?["sound"] as? String,
+            url: IAlertMessage.clickURL(ialert["url"] as? String, data: data)
         )
+    }
+
+    /// Hardware identifier such as `iPhone16,2` (the simulated one on the Simulator).
+    internal static func deviceModel() -> String? {
+        if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"], !simulated.isEmpty {
+            return simulated
+        }
+        var size = 0
+        guard sysctlbyname("hw.machine", nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var machine = [CChar](repeating: 0, count: size)
+        guard sysctlbyname("hw.machine", &machine, &size, nil, 0) == 0 else { return nil }
+        let model = String(cString: machine)
+        return model.isEmpty ? nil : model
+    }
+
+    /// `17.4` or `17.4.1`.
+    internal static func osVersion() -> String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return version.patchVersion > 0
+            ? "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
+            : "\(version.majorVersion).\(version.minorVersion)"
     }
 }
 
