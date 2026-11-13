@@ -4,7 +4,7 @@ import Foundation
 /// open while the app runs, syncs the Inbox after every (re)connect and hands
 /// each notification to listeners exactly once.
 public final class IAlert: @unchecked Sendable {
-    public static let sdkVersion = "0.7.0"
+    public static let sdkVersion = "0.8.0"
 
     public struct Configuration {
         /// Public key of the app (`ia_pk_…`).

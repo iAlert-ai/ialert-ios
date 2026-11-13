@@ -7,7 +7,7 @@ iAlert iOS SDK, a Swift Package with no dependencies (Foundation's `URLSession` 
 In Xcode: **File → Add Package Dependencies…** and enter `https://github.com/iAlert-ai/ialert-ios`, or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.7.0")
+.package(url: "https://github.com/iAlert-ai/ialert-ios", from: "0.8.0")
 // target dependency:
 .product(name: "IAlert", package: "ialert-ios")
 ```
