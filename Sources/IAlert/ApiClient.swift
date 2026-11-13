@@ -76,8 +76,8 @@ struct ApiClient: Sendable {
         self.transport = transport
     }
 
-    func register(_ body: [String: JSONValue]) async throws -> (Device, String) {
-        let result: Registered = try await request("POST", "/devices", body: body)
+    func register(_ body: [String: JSONValue], deviceToken: String? = nil) async throws -> (Device, String) {
+        let result: Registered = try await request("POST", "/devices", body: body, deviceToken: deviceToken)
         return (result.data, result.deviceToken)
     }
 

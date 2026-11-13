@@ -223,6 +223,9 @@ final class IAlertTests: XCTestCase {
         XCTAssertEqual(body["tags"], .object(["plan": "gold"]))
         XCTAssertEqual(body["sdk_version"], "0.7.0")
         XCTAssertEqual(transport.requests[1].body?["push_token"], body["push_token"])
+        XCTAssertEqual(body["device_binding"], true)
+        XCTAssertNil(first.headers["X-Device-Token"])
+        XCTAssertEqual(transport.requests[1].headers["X-Device-Token"], "ia_dt_dev_1.sig")
     }
 
     func testSendsTheApnsTokenAndKeepsTheRegistrationAcrossRestarts() async throws {

@@ -79,12 +79,14 @@ public final class IAlert: @unchecked Sendable {
         body["push_token"] = .string(pushToken ?? installationId())
         body["installation_id"] = .string(installationId())
         body["sdk_version"] = .string(Self.sdkVersion)
+        body["device_binding"] = true
         if let model = Self.deviceModel() { body["device_model"] = .string(model) }
         body["os_version"] = .string(Self.osVersion())
         if fields.locale == nil { body["locale"] = .string(Locale.current.identifier) }
         if fields.timezone == nil { body["timezone"] = .string(TimeZone.current.identifier) }
 
-        let (device, token) = try await api.register(body)
+        // Proves this install owns the device, so nobody else can re-register it.
+        let (device, token) = try await api.register(body, deviceToken: locked { registration?.deviceToken })
         locked {
             registration = Registration(deviceId: device.id, deviceToken: token)
             store.set(registration, "registration")
